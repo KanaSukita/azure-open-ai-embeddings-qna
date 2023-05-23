@@ -2,7 +2,23 @@ import os
 import streamlit as st
 from streamlit_chat import message
 from utilities.helper import LLMHelper
-from OpenAI_Queries import check_variables_in_prompt
+
+def check_variables_in_prompt():
+    # Check if "summaries" is present in the string custom_prompt
+    if "{summaries}" not in st.session_state.custom_chat_prompt:
+        st.warning("""Your custom prompt doesn't contain the variable "{summaries}".  
+        This variable is used to add the content of the documents retrieved from the VectorStore to the prompt.  
+        Please add it to your custom prompt to use the app.  
+        Reverting to default prompt.
+        """)
+        st.session_state.custom_chat_prompt = ""
+    if "{question}" not in st.session_state.custom_chat_prompt:
+        st.warning("""Your custom prompt doesn't contain the variable "{question}".  
+        This variable is used to add the user's question to the prompt.  
+        Please add it to your custom prompt to use the app.  
+        Reverting to default prompt.  
+        """)
+        st.session_state.custom_chat_prompt = ""
 
 def clear_text_input():
     st.session_state['question'] = st.session_state['input']
