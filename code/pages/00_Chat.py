@@ -65,7 +65,7 @@ st.text_input("You: ", placeholder="type your question", key="input", on_change=
 clear_chat = st.button("Clear chat", key="clear_chat", on_click=clear_chat_data)
 
 if st.session_state['question']:
-    question, result, _, sources = llm_helper.get_semantic_answer_lang_chain(st.session_state['question'], st.session_state['chat_history'])
+    question, result, _, sources, verbose_info = llm_helper.get_semantic_answer_lang_chain(st.session_state['question'], st.session_state['chat_history'])
     st.session_state['chat_history'].append((question, result))
     st.session_state['source_documents'].append(sources)
 

@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import logging
 import re
 import hashlib
+import sys
+from io import StringIO
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import AzureOpenAI
@@ -164,6 +166,9 @@ class LLMHelper:
     def get_semantic_answer_lang_chain(self, question, chat_history):
         question_generator = LLMChain(llm=self.llm, prompt=CONDENSE_QUESTION_PROMPT, verbose=False)
         doc_chain = load_qa_with_sources_chain(self.llm, chain_type="stuff", verbose=True, prompt=self.prompt)
+        verbose_io = StringIO()
+        temp = sys.stdout
+        sys.stdout = verbose_io
         chain = ConversationalRetrievalChain(
             retriever=self.vector_store.as_retriever(),
             question_generator=question_generator,
@@ -171,6 +176,9 @@ class LLMHelper:
             return_source_documents=True,
             # top_k_docs_for_context= self.k
         )
+        verbose_info = verbose_io.getvalue()
+        sys.stdout.close()
+        sys.stdout = temp
         result = chain({"question": question, "chat_history": chat_history})
         context = "\n".join(list(map(lambda x: x.page_content, result['source_documents'])))
         sources = "\n".join(set(map(lambda x: x.metadata["source"], result['source_documents'])))
@@ -180,7 +188,7 @@ class LLMHelper:
         result['answer'] = result['answer'].split('SOURCES:')[0].split('Sources:')[0].split('SOURCE:')[0].split('Source:')[0]
         sources = sources.replace('_SAS_TOKEN_PLACEHOLDER_', container_sas)
 
-        return question, result['answer'], context, sources
+        return question, result['answer'], context, sources, verbose_info
 
     def get_embeddings_model(self):
         OPENAI_EMBEDDINGS_ENGINE_DOC = os.getenv('OPENAI_EMEBDDINGS_ENGINE', os.getenv('OPENAI_EMBEDDINGS_ENGINE_DOC', 'text-embedding-ada-002'))  

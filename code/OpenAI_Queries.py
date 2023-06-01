@@ -154,7 +154,7 @@ try:
 
     if question != '':
         st.session_state['question'] = question
-        st.session_state['question'], st.session_state['response'], st.session_state['context'], sources = llm_helper.get_semantic_answer_lang_chain(question, [])
+        st.session_state['question'], st.session_state['response'], st.session_state['context'], sources, verbose_info = llm_helper.get_semantic_answer_lang_chain(question, [])
         st.markdown("Answer:" + st.session_state['response'])
         st.markdown(f'\n\nSources: {sources}') 
         with st.expander("Question and Answer Context"):
