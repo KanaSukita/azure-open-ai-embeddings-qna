@@ -163,32 +163,45 @@ class LLMHelper:
                 'metadata' : x.metadata,
                 }, result)))
 
-    def get_semantic_answer_lang_chain(self, question, chat_history):
-        question_generator = LLMChain(llm=self.llm, prompt=CONDENSE_QUESTION_PROMPT, verbose=False)
+    def format_verbose_info(self, verbose_info):
+        verbose_info = verbose_info.replace('\n', '\n\n')
+        verbose_info = verbose_info.replace('\n\n\n\n', '\n\n')
+        verbose_info = verbose_info.replace('    ', '')
+        verbose_info = verbose_info.replace('\x1b[1m', '')
+        verbose_info = verbose_info.replace('\x1b[0m', '')
+        verbose_info = verbose_info.replace('\x1b[32;1m\x1b[1;3m', '\n\n')
+        return verbose_info
+
+    def get_semantic_answer_lang_chain(self, question, chat_history, top_k=4):
+        question_generator = LLMChain(llm=self.llm, prompt=CONDENSE_QUESTION_PROMPT, verbose=True)
         doc_chain = load_qa_with_sources_chain(self.llm, chain_type="stuff", verbose=True, prompt=self.prompt)
-        verbose_io = StringIO()
-        temp = sys.stdout
-        sys.stdout = verbose_io
         chain = ConversationalRetrievalChain(
-            retriever=self.vector_store.as_retriever(),
+            retriever=self.vector_store.as_retriever(k=top_k),
             question_generator=question_generator,
             combine_docs_chain=doc_chain,
             return_source_documents=True,
-            # top_k_docs_for_context= self.k
+            # top_k_docs_for_context=self.k
         )
+        verbose_io = StringIO()
+        temp = sys.stdout
+        sys.stdout = verbose_io
+        result = chain({"question": question, "chat_history": chat_history})
         verbose_info = verbose_io.getvalue()
         sys.stdout.close()
         sys.stdout = temp
-        result = chain({"question": question, "chat_history": chat_history})
         context = "\n".join(list(map(lambda x: x.page_content, result['source_documents'])))
         sources = "\n".join(set(map(lambda x: x.metadata["source"], result['source_documents'])))
+        scores = list(map(lambda x: x.metadata["score"], result['source_documents']))
 
-        container_sas = self.blob_client.get_container_sas()
+        # container_sas = self.blob_client.get_container_sas()
         
         result['answer'] = result['answer'].split('SOURCES:')[0].split('Sources:')[0].split('SOURCE:')[0].split('Source:')[0]
-        sources = sources.replace('_SAS_TOKEN_PLACEHOLDER_', container_sas)
+        if result['answer'].endswith('('):
+            result['answer'] = result['answer'][:-1]
+        # sources = sources.replace('_SAS_TOKEN_PLACEHOLDER_', container_sas)
+        sources = None
 
-        return question, result['answer'], context, sources, verbose_info
+        return question, result['answer'], context, sources, self.format_verbose_info(verbose_info), scores
 
     def get_embeddings_model(self):
         OPENAI_EMBEDDINGS_ENGINE_DOC = os.getenv('OPENAI_EMEBDDINGS_ENGINE', os.getenv('OPENAI_EMBEDDINGS_ENGINE_DOC', 'text-embedding-ada-002'))  

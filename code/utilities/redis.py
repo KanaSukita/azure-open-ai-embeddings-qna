@@ -3,7 +3,8 @@ import logging
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple
 
-from langchain.vectorstores.redis import Redis
+from langchain.vectorstores.redis import Redis, RedisVectorStoreRetriever
+from langchain.schema import BaseRetriever
 from langchain.docstore.document import Document
 from langchain.embeddings.base import Embeddings
 from langchain.vectorstores.base import VectorStore
@@ -105,3 +106,24 @@ class RedisExtended(Redis):
 
     def delete_prompt_results(self, prefix="prompt*"):
         self.delete_keys_pattern(pattern=prefix)
+
+    def as_retriever(self, **kwargs: Any) -> BaseRetriever:
+        return RedisVectorStoreRetrieverExtended(vectorstore=self, **kwargs)
+
+class RedisVectorStoreRetrieverExtended(RedisVectorStoreRetriever):
+    def tuple_to_doc(self, doc_tuple):
+        doc = doc_tuple[0]
+        doc.metadata['score'] = doc_tuple[1]
+        return doc
+
+    def get_relevant_documents(self, query: str) -> List[Document]:
+        if self.search_type == "similarity":
+            doc_tuples = self.vectorstore.similarity_search_with_score(query, k=self.k)
+            docs = list(map(lambda x : self.tuple_to_doc(x), doc_tuples))
+        elif self.search_type == "similarity_limit":
+            docs = self.vectorstore.similarity_search_limit_score(
+                query, k=self.k, score_threshold=self.score_threshold
+            )
+        else:
+            raise ValueError(f"search_type of {self.search_type} not allowed.")
+        return docs
