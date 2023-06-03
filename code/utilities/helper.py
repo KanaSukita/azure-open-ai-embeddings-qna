@@ -92,10 +92,13 @@ class LLMHelper:
         self.vector_store: RedisExtended = RedisExtended(redis_url=self.vector_store_full_address, index_name=self.index_name, embedding_function=self.embeddings.embed_query) if vector_store is None else vector_store   
         self.k : int = 3 if k is None else k
 
-        self.pdf_parser : AzureFormRecognizerClient = AzureFormRecognizerClient() if pdf_parser is None else pdf_parser
+        # self.pdf_parser : AzureFormRecognizerClient = AzureFormRecognizerClient() if pdf_parser is None else pdf_parser
         self.blob_client: AzureBlobStorageClient = AzureBlobStorageClient() if blob_client is None else blob_client
-        self.enable_translation : bool = False if enable_translation is None else enable_translation
-        self.translator : AzureTranslatorClient = AzureTranslatorClient() if translator is None else translator
+        # self.enable_translation : bool = False if enable_translation is None else enable_translation
+        # self.translator : AzureTranslatorClient = AzureTranslatorClient() if translator is None else translator
+        self.pdf_parser = pdf_parser
+        self.enable_translation = enable_translation
+        self.translator = translator
 
         self.user_agent: UserAgent() = UserAgent()
         self.user_agent.random
@@ -132,6 +135,7 @@ class LLMHelper:
                 doc.metadata = {"source": f"[{source_url}]({source_url}_SAS_TOKEN_PLACEHOLDER_)" , "chunk": i, "key": hash_key, "filename": filename}
             self.vector_store.add_documents(documents=docs, redis_url=self.vector_store_full_address,  index_name=self.index_name, keys=keys)
         except Exception as e:
+            print(f"Error adding embeddings for {source_url}: {e}")
             logging.error(f"Error adding embeddings for {source_url}: {e}")
             raise e
 
@@ -156,9 +160,9 @@ class LLMHelper:
     def get_all_documents(self, k: int = None):
         result = self.vector_store.similarity_search(query="*", k= k if k else self.k)
         return pd.DataFrame(list(map(lambda x: {
-                'key': x.metadata['key'],
-                'filename': x.metadata['filename'],
-                'source': urllib.parse.unquote(x.metadata['source']), 
+                'key': x.metadata.get('key', ""),
+                'filename': x.metadata.get('filename', ""),
+                'source': urllib.parse.unquote(x.metadata.get('source', "")),
                 'content': x.page_content, 
                 'metadata' : x.metadata,
                 }, result)))

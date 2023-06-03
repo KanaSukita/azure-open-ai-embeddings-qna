@@ -85,7 +85,8 @@ def check_variables_in_prompt():
 
 @st.cache_data()
 def get_languages():
-    return llm_helper.translator.get_available_languages()
+    # return llm_helper.translator.get_available_languages()
+    return {'translation_language': ['English']}
 
 try:
 
