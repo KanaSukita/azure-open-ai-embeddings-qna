@@ -94,7 +94,8 @@ if st.session_state['chat_history']:
         st.markdown(f'\n\nSources: {st.session_state["source_documents"][i]}')
         message(st.session_state['chat_history'][i][0], is_user=True, key=str(i) + '_user')
 
-st.header('embeddings scores')
-st.markdown(st.session_state['scores'])
-st.header('verbose info')
-st.markdown(st.session_state['verbose_info'])
+with st.expander("Intermediate"):
+    st.markdown('##### embeddings scores')
+    st.markdown(st.session_state['scores'])
+    st.markdown('##### verbose info')
+    st.markdown(st.session_state['verbose_info'])
