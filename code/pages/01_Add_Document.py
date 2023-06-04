@@ -12,7 +12,7 @@ from urllib import parse
     
 def upload_text_and_embeddings():
     file_name = f"{uuid.uuid4()}.txt"
-    source_url = llm_helper.blob_client.upload_file(st.session_state['doc_text'], file_name=file_name, content_type='text/plain; charset=utf-8')
+    source_url = llm_helper.file_manager.upload_file(st.session_state['doc_text'], file_name)
     llm_helper.add_embeddings_lc(source_url) 
     st.success("Embeddings added successfully.")
 

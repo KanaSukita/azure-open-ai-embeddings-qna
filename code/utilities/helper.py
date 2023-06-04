@@ -17,7 +17,7 @@ from langchain.chains.llm import LLMChain
 from langchain.chains.chat_vector_db.prompts import CONDENSE_QUESTION_PROMPT
 from langchain.prompts import PromptTemplate
 from langchain.document_loaders.base import BaseLoader
-from langchain.document_loaders import TextLoader
+from langchain.document_loaders import WebBaseLoader, TextLoader
 from langchain.text_splitter import TokenTextSplitter, TextSplitter
 from langchain.document_loaders.base import BaseLoader
 from langchain.document_loaders import TextLoader
@@ -84,7 +84,7 @@ class LLMHelper:
         
         self.chunk_size = int(os.getenv('CHUNK_SIZE', 500))
         self.chunk_overlap = int(os.getenv('CHUNK_OVERLAP', 100))
-        self.document_loaders: BaseLoader = TextLoader if document_loaders is None else document_loaders
+        self.document_loaders: BaseLoader = WebBaseLoader if document_loaders is None else document_loaders
         self.text_splitter: TextSplitter = TokenTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap) if text_splitter is None else text_splitter
         self.embeddings: OpenAIEmbeddings = OpenAIEmbeddings(model=self.model, chunk_size=1) if embeddings is None else embeddings
         if self.deployment_type == "Chat":
@@ -106,9 +106,9 @@ class LLMHelper:
         self.user_agent: UserAgent() = UserAgent()
         self.user_agent.random
 
-    def add_embeddings_lc(self, source_url):
+    def add_embeddings_lc(self, source_url, loader=TextLoader):
         try:
-            documents = self.document_loaders(source_url).load()
+            documents = loader(source_url).load()
             
             # Convert to UTF-8 encoding for non-ascii text
             for(document) in documents:
