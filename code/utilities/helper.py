@@ -17,7 +17,7 @@ from langchain.chains.llm import LLMChain
 from langchain.chains.chat_vector_db.prompts import CONDENSE_QUESTION_PROMPT
 from langchain.prompts import PromptTemplate
 from langchain.document_loaders.base import BaseLoader
-from langchain.document_loaders import WebBaseLoader
+from langchain.document_loaders import TextLoader
 from langchain.text_splitter import TokenTextSplitter, TextSplitter
 from langchain.document_loaders.base import BaseLoader
 from langchain.document_loaders import TextLoader
@@ -26,6 +26,7 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from utilities.formrecognizer import AzureFormRecognizerClient
 from utilities.azureblobstorage import AzureBlobStorageClient
+from utilities.filemanager import FileManager
 from utilities.translator import AzureTranslatorClient
 from utilities.customprompt import PROMPT
 from utilities.redis import RedisExtended
@@ -48,6 +49,7 @@ class LLMHelper:
         k: int = None,
         pdf_parser: AzureFormRecognizerClient = None,
         blob_client: AzureBlobStorageClient = None,
+        file_manager: FileManager = None,
         enable_translation: bool = False,
         translator: AzureTranslatorClient = None):
 
@@ -82,7 +84,7 @@ class LLMHelper:
         
         self.chunk_size = int(os.getenv('CHUNK_SIZE', 500))
         self.chunk_overlap = int(os.getenv('CHUNK_OVERLAP', 100))
-        self.document_loaders: BaseLoader = WebBaseLoader if document_loaders is None else document_loaders
+        self.document_loaders: BaseLoader = TextLoader if document_loaders is None else document_loaders
         self.text_splitter: TextSplitter = TokenTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap) if text_splitter is None else text_splitter
         self.embeddings: OpenAIEmbeddings = OpenAIEmbeddings(model=self.model, chunk_size=1) if embeddings is None else embeddings
         if self.deployment_type == "Chat":
@@ -97,6 +99,7 @@ class LLMHelper:
         # self.enable_translation : bool = False if enable_translation is None else enable_translation
         # self.translator : AzureTranslatorClient = AzureTranslatorClient() if translator is None else translator
         self.pdf_parser = pdf_parser
+        self.file_manager: FileManager = FileManager() if file_manager is None else file_manager
         self.enable_translation = enable_translation
         self.translator = translator
 
@@ -115,7 +118,8 @@ class LLMHelper:
                 except:
                     pass
                 
-            docs = self.text_splitter.split_documents(documents)
+            # docs = self.text_splitter.split_documents(documents)
+            docs = documents
             
             # Remove half non-ascii character from start/end of doc content (langchain TokenTextSplitter may split a non-ascii character in half)
             pattern = re.compile(r'[\x00-\x1f\x7f\u0080-\u00a0\u2000-\u3000\ufff0-\uffff]')
@@ -132,7 +136,7 @@ class LLMHelper:
                 hash_key = hashlib.sha1(f"{source_url}_{i}".encode('utf-8')).hexdigest()
                 hash_key = f"doc:{self.index_name}:{hash_key}"
                 keys.append(hash_key)
-                doc.metadata = {"source": f"[{source_url}]({source_url}_SAS_TOKEN_PLACEHOLDER_)" , "chunk": i, "key": hash_key, "filename": filename}
+                doc.metadata = {"source": f"[{source_url}]({source_url})" , "chunk": i, "key": hash_key, "filename": filename}
             self.vector_store.add_documents(documents=docs, redis_url=self.vector_store_full_address,  index_name=self.index_name, keys=keys)
         except Exception as e:
             print(f"Error adding embeddings for {source_url}: {e}")
@@ -203,7 +207,6 @@ class LLMHelper:
         if result['answer'].endswith('('):
             result['answer'] = result['answer'][:-1]
         # sources = sources.replace('_SAS_TOKEN_PLACEHOLDER_', container_sas)
-        sources = None
 
         return question, result['answer'], context, sources, self.format_verbose_info(verbose_info), scores
 

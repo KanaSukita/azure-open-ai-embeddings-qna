@@ -28,7 +28,7 @@ try:
 
     col1, col2, col3 = st.columns([2,1,1])
 
-    files_data = llm_helper.blob_client.get_all_files()
+    files_data = llm_helper.file_manager.get_all_files()
 
     st.dataframe(files_data, use_container_width=True)
 
