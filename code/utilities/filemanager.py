@@ -9,10 +9,9 @@ class FileManager:
 
         self.dir_path = dir_path
 
-    def upload_file(self, bytes_data, file_name):
+    def upload_file(self, bytes_data, file_name, data_type='wb'):
         file_url = os.path.join(self.dir_path, file_name)
-        with open(file_url, 'wb') as f:
-            print(bytes_data)
+        with open(file_url, data_type) as f:
             f.write(bytes_data)
         return file_url
         

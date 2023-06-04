@@ -5,29 +5,23 @@ import requests
 import mimetypes
 import traceback
 import chardet
+from langchain.document_loaders import WebBaseLoader
 from utilities.helper import LLMHelper
 import uuid
 from redis.exceptions import ResponseError 
 from urllib import parse
-    
+from stqdm import stqdm
+
 def upload_text_and_embeddings():
     file_name = f"{uuid.uuid4()}.txt"
-    source_url = llm_helper.file_manager.upload_file(st.session_state['doc_text'], file_name)
+    source_url = llm_helper.file_manager.upload_file(st.session_state['doc_text'], file_name, data_type='w')
     llm_helper.add_embeddings_lc(source_url) 
     st.success("Embeddings added successfully.")
 
-def remote_convert_files_and_add_embeddings(process_all=False):
-    url = os.getenv('CONVERT_ADD_EMBEDDINGS_URL')
-    if process_all:
-        url = f"{url}?process_all=true"
-    try:
-        response = requests.post(url)
-        if response.status_code == 200:
-            st.success(f"{response.text}\nPlease note this is an asynchronous process and may take a few minutes to complete.")
-        else:
-            st.error(f"Error: {response.text}")
-    except Exception as e:
-        st.error(traceback.format_exc())
+def remote_convert_files_and_add_embeddings(file_urls=[]):
+    for file_url in stqdm(file_urls):
+        llm_helper.add_embeddings_lc(file_url)
+    st.success("Embeddings added successfully.")
 
 def delete_row():
     st.session_state['data_to_drop'] 
@@ -37,7 +31,7 @@ def add_urls():
     urls = st.session_state['urls'].split('\n')
     for url in urls:
         if url:
-            llm_helper.add_embeddings_lc(url)
+            llm_helper.add_embeddings_lc(url, loader=WebBaseLoader, text_split=True)
             st.success(f"Embeddings added successfully for {url}")
 
 def upload_file(bytes_data: bytes, file_name: str):
@@ -46,7 +40,9 @@ def upload_file(bytes_data: bytes, file_name: str):
     # content_type = mimetypes.MimeTypes().guess_type(file_name)[0]
     # charset = f"; charset={chardet.detect(bytes_data)['encoding']}" if content_type == 'text/plain' else ''
     # st.session_state['file_url'] = llm_helper.blob_client.upload_file(bytes_data, st.session_state['filename'], content_type=content_type+charset)
-    st.session_state['file_url'] = llm_helper.file_manager.upload_file(bytes_data, st.session_state['filename'])
+    file_url = llm_helper.file_manager.upload_file(bytes_data, st.session_state['filename'])
+    st.session_state['file_url'] = file_url
+    return file_url
 
 try:
     # Set page layout to wide screen and menu item
@@ -96,7 +92,8 @@ try:
             st.button("Compute Embeddings", on_click=upload_text_and_embeddings)
 
     with st.expander("Add documents in Batch", expanded=False):
-        uploaded_files = st.file_uploader("Upload a document to add it to the Azure Storage Account", type=['pdf','jpeg','jpg','png', 'txt'], accept_multiple_files=True)
+        uploaded_files = st.file_uploader("Upload multiple documents", type=['txt'], accept_multiple_files=True)
+        file_urls = []
         if uploaded_files is not None:
             for up in uploaded_files:
                 # To read file as bytes:
@@ -104,16 +101,15 @@ try:
 
                 if st.session_state.get('filename', '') != up.name:
                     # Upload a new file
-                    upload_file(bytes_data, up.name)
-                    if up.name.endswith('.txt'):
-                        # Add the text to the embeddings
-                        llm_helper.blob_client.upsert_blob_metadata(up.name, {'converted': "true"})
+                    file_url = upload_file(bytes_data, up.name)
+                    file_urls.append(file_url)
+                    # if up.name.endswith('.txt'):
+                    #     # Add the text to the embeddings
+                    #     llm_helper.blob_client.upsert_blob_metadata(up.name, {'converted': "true"})
 
         col1, col2, col3 = st.columns([2,2,2])
-        with col1:
-            st.button("Convert new files and add embeddings", on_click=remote_convert_files_and_add_embeddings)
         with col3:
-            st.button("Convert all files and add embeddings", on_click=remote_convert_files_and_add_embeddings, args=(True,))
+            st.button("Convert all files and add embeddings", on_click=remote_convert_files_and_add_embeddings, args=(file_urls,))
 
     with st.expander("Add URLs to the knowledge base", expanded=True):
         col1, col2 = st.columns([3,1])

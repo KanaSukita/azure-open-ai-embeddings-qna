@@ -106,7 +106,7 @@ class LLMHelper:
         self.user_agent: UserAgent() = UserAgent()
         self.user_agent.random
 
-    def add_embeddings_lc(self, source_url, loader=TextLoader):
+    def add_embeddings_lc(self, source_url, loader=TextLoader, text_split=False):
         try:
             documents = loader(source_url).load()
             
@@ -117,9 +117,11 @@ class LLMHelper:
                         document.page_content = document.page_content.encode("iso-8859-1").decode("utf-8", errors="ignore")
                 except:
                     pass
-                
-            # docs = self.text_splitter.split_documents(documents)
-            docs = documents
+
+            if text_split is True:
+                docs = self.text_splitter.split_documents(documents)
+            else:
+                docs = documents
             
             # Remove half non-ascii character from start/end of doc content (langchain TokenTextSplitter may split a non-ascii character in half)
             pattern = re.compile(r'[\x00-\x1f\x7f\u0080-\u00a0\u2000-\u3000\ufff0-\uffff]')
